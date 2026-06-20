@@ -5,6 +5,7 @@
     <string name="start">Start indicator</string>
     <string name="stop">Stop indicator</string>
     <string name="battery">Disable battery optimization</string>
+    <string name="need_notif_permission">Notification permission is required to show the speed in the status bar.</string>
     <string name="notif_title">Network speed</string>
     <string name="channel_name">Throughput indicator</string>
     <string name="channel_desc">Ongoing notification showing live network speed.</string>

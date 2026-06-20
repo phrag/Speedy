@@ -12,6 +12,7 @@ import android.graphics.drawable.Icon
 import android.net.TrafficStats
 import android.os.IBinder
 import android.os.SystemClock
+import android.util.Log
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.Job
@@ -36,24 +37,37 @@ class SpeedService : Service() {
 
     override fun onCreate() {
         super.onCreate()
+        Log.i(TAG, "onCreate")
         createChannel()
         RustBridge.nativeInit(ICON_PX, ICON_PX, resources.displayMetrics.density)
     }
 
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
+            Log.i(TAG, "stop requested")
             stopSelf()
             return START_NOT_STICKY
         }
-        // Must call startForeground promptly; seed with an empty icon + priming tick.
-        val (icon, label) = tickOnce()
-        startForeground(
-            NOTIF_ID,
-            buildNotification(icon, label),
-            ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
-        )
-        startLoop()
-        return START_STICKY
+        return try {
+            // Must call startForeground promptly; seed with a priming tick.
+            val (icon, label) = tickOnce()
+            startForeground(
+                NOTIF_ID,
+                buildNotification(icon, label),
+                ServiceInfo.FOREGROUND_SERVICE_TYPE_SPECIAL_USE,
+            )
+            Log.i(
+                TAG,
+                "startForeground OK; notificationsEnabled=" +
+                    "${notificationManager().areNotificationsEnabled()}",
+            )
+            startLoop()
+            START_STICKY
+        } catch (t: Throwable) {
+            Log.e(TAG, "failed to start foreground service", t)
+            stopSelf()
+            START_NOT_STICKY
+        }
     }
 
     override fun onDestroy() {
@@ -101,6 +115,9 @@ class SpeedService : Service() {
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
+            // Show the status-bar icon immediately rather than letting the
+            // system defer the foreground-service notification by up to 10s.
+            .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(open)
             .build()
     }
@@ -121,6 +138,7 @@ class SpeedService : Service() {
         getSystemService(NotificationManager::class.java)
 
     companion object {
+        private const val TAG = "Speedy"
         const val ACTION_STOP = "dev.speedy.action.STOP"
         private const val CHANNEL_ID = "throughput"
         private const val NOTIF_ID = 1

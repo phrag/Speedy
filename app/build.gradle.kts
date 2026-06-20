@@ -38,6 +38,12 @@ android {
     // The Kotlin sources live under src/main/kotlin (AGP also scans this by default).
     sourceSets["main"].kotlin.srcDir("src/main/kotlin")
 
+    // Store libspeedy_core.so uncompressed/page-aligned so it isn't extracted at
+    // install time — smaller install footprint and faster first load.
+    packaging {
+        jniLibs.useLegacyPackaging = false
+    }
+
     // libspeedy_core.so is produced by scripts/build-rust.sh into src/main/jniLibs.
     lint {
         // Keep lint informative without failing the build on style warnings.
@@ -46,6 +52,5 @@ android {
 }
 
 dependencies {
-    implementation("org.jetbrains.kotlinx:kotlinx-coroutines-android:1.8.1")
     testImplementation("junit:junit:4.13.2")
 }

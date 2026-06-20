@@ -10,28 +10,33 @@ import android.content.pm.ServiceInfo
 import android.graphics.Bitmap
 import android.graphics.drawable.Icon
 import android.net.TrafficStats
+import android.os.Handler
+import android.os.HandlerThread
 import android.os.IBinder
 import android.os.SystemClock
 import android.util.Log
-import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.Job
-import kotlinx.coroutines.SupervisorJob
-import kotlinx.coroutines.cancel
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.isActive
-import kotlinx.coroutines.launch
 
 /**
  * Foreground service that drives the indicator: once a second it reads the
  * device's cumulative byte counters, hands them to Rust, and renders the
  * returned pixels into the ongoing notification's small icon — which is what
  * the status bar displays.
+ *
+ * The 1 Hz loop runs on a dedicated [HandlerThread] (no coroutines dependency —
+ * keeps the APK small and quick to install).
  */
 class SpeedService : Service() {
 
-    private val scope = CoroutineScope(SupervisorJob() + Dispatchers.Default)
-    private var loop: Job? = null
+    private var ticker: HandlerThread? = null
+    private var handler: Handler? = null
+
+    private val tick = object : Runnable {
+        override fun run() {
+            val (icon, label) = tickOnce()
+            notificationManager().notify(NOTIF_ID, buildNotification(icon, label))
+            handler?.postDelayed(this, INTERVAL_MS)
+        }
+    }
 
     override fun onBind(intent: Intent?): IBinder? = null
 
@@ -71,19 +76,18 @@ class SpeedService : Service() {
     }
 
     override fun onDestroy() {
-        scope.cancel()
+        handler?.removeCallbacks(tick)
+        ticker?.quitSafely()
+        ticker = null
+        handler = null
         super.onDestroy()
     }
 
     private fun startLoop() {
-        if (loop?.isActive == true) return
-        loop = scope.launch {
-            while (isActive) {
-                delay(INTERVAL_MS)
-                val (icon, label) = tickOnce()
-                notificationManager().notify(NOTIF_ID, buildNotification(icon, label))
-            }
-        }
+        if (ticker != null) return
+        val thread = HandlerThread("speedy-ticker").also { it.start() }
+        ticker = thread
+        handler = Handler(thread.looper).also { it.postDelayed(tick, INTERVAL_MS) }
     }
 
     /** Sample counters, run them through Rust, and turn the result into a Bitmap. */

@@ -50,6 +50,12 @@ class SpeedService : Service() {
     override fun onStartCommand(intent: Intent?, flags: Int, startId: Int): Int {
         if (intent?.action == ACTION_STOP) {
             Log.i(TAG, "stop requested")
+            // Swiping the notification away counts as turning the indicator off —
+            // clear the persisted flag so BootReceiver doesn't resurrect it.
+            getSharedPreferences(MainActivity.PREFS, MODE_PRIVATE)
+                .edit()
+                .putBoolean(MainActivity.KEY_ENABLED, false)
+                .apply()
             stopSelf()
             return START_NOT_STICKY
         }
@@ -111,11 +117,18 @@ class SpeedService : Service() {
             Intent(this, MainActivity::class.java),
             PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
         )
+        // Swiping the notification away fires this and stops the service — no
+        // ongoing lock, so the indicator is genuinely optional moment-to-moment.
+        val dismiss = PendingIntent.getService(
+            this,
+            0,
+            Intent(this, SpeedService::class.java).setAction(ACTION_STOP),
+            PendingIntent.FLAG_IMMUTABLE or PendingIntent.FLAG_UPDATE_CURRENT,
+        )
         return Notification.Builder(this, CHANNEL_ID)
             .setSmallIcon(Icon.createWithBitmap(icon))
             .setContentTitle(getString(R.string.notif_title))
             .setContentText(label)
-            .setOngoing(true)
             .setOnlyAlertOnce(true)
             .setCategory(Notification.CATEGORY_SERVICE)
             .setVisibility(Notification.VISIBILITY_PUBLIC)
@@ -123,6 +136,7 @@ class SpeedService : Service() {
             // system defer the foreground-service notification by up to 10s.
             .setForegroundServiceBehavior(Notification.FOREGROUND_SERVICE_IMMEDIATE)
             .setContentIntent(open)
+            .setDeleteIntent(dismiss)
             .build()
     }
 

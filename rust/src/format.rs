@@ -39,6 +39,16 @@ pub fn fmt_rate(bps: f64) -> String {
     }
 }
 
+/// Like [`fmt_rate`] but without a decimal point, e.g. `"0"`, `"2K"`, `"15M"`,
+/// `"1G"`. Fewer characters let the single status-bar number render larger.
+pub fn fmt_rate_compact(bps: f64) -> String {
+    if !(bps.is_finite() && bps >= 1.0) {
+        return "0".to_string();
+    }
+    let (v, unit) = scale(bps);
+    format!("{:.0}{}", v, unit)
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -72,6 +82,16 @@ mod tests {
         assert_eq!(fmt_rate(1024.0 * 1024.0), "1.0M");
         assert_eq!(fmt_rate(12.0 * 1024.0 * 1024.0), "12M");
         assert_eq!(fmt_rate(3.0 * 1024.0 * 1024.0 * 1024.0), "3.0G");
+    }
+
+    #[test]
+    fn compact_drops_decimals() {
+        assert_eq!(fmt_rate_compact(0.0), "0");
+        assert_eq!(fmt_rate_compact(2.0 * 1024.0), "2K");
+        assert_eq!(fmt_rate_compact(15.0 * 1024.0 * 1024.0), "15M");
+        assert_eq!(fmt_rate_compact(1.0 * 1024.0 * 1024.0 * 1024.0), "1G");
+        // No decimal point, so at most 4 chars for typical rates.
+        assert!(!fmt_rate_compact(2.5 * 1024.0).contains('.'));
     }
 
     #[test]

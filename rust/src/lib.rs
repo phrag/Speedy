@@ -38,10 +38,14 @@ impl App {
     /// Process one counter sample. Returns the freshly rendered ARGB_8888 icon.
     pub fn tick(&mut self, rx: i64, tx: i64, ns: i64) -> &[u32] {
         let (down, up) = self.speed.tick(rx, tx, ns);
+        // Precise rates (with decimals) for the notification shade...
         let down_s = format::fmt_rate(down);
         let up_s = format::fmt_rate(up);
         self.last_label = format!("↓ {down_s}/s   ↑ {up_s}/s");
-        self.last_icon = icon::render(self.icon_w, self.icon_h, &down_s, &up_s);
+        // ...but the tiny status-bar icon shows only the download rate, decimal-
+        // free, rendered as large as the square allows for legibility.
+        let icon_text = format::fmt_rate_compact(down);
+        self.last_icon = icon::render_single(self.icon_w, self.icon_h, &icon_text);
         &self.last_icon
     }
 

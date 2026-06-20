@@ -32,18 +32,19 @@ fn fit_scale(width: usize, height: usize, top: &str, bottom: &str) -> usize {
     by_w.min(by_h).max(1)
 }
 
-/// Draw `s` at scale `scale`, its right edge at `right_x`, top at `top_y`.
+/// Draw `s` with independent per-axis scale (`sx`, `sy`), placing the top-left
+/// of the first glyph at `origin` = (left_x, top_y).
 fn draw_text(
     buf: &mut [u32],
     width: usize,
     height: usize,
     s: &str,
-    scale: usize,
-    right_x: usize,
-    top_y: usize,
+    sx: usize,
+    sy: usize,
+    origin: (usize, usize),
 ) {
-    let total_w = text_width_px(s) * scale;
-    let mut x = right_x.saturating_sub(total_w);
+    let (left_x, top_y) = origin;
+    let mut x = left_x;
     for c in s.chars() {
         let Some(rows) = glyph(c) else { continue };
         for (ry, &row) in rows.iter().enumerate() {
@@ -52,11 +53,11 @@ fn draw_text(
                 if (row >> (GLYPH_W - 1 - cx)) & 1 == 0 {
                     continue;
                 }
-                // Paint the scale×scale block for this font pixel.
-                for sy in 0..scale {
-                    for sx in 0..scale {
-                        let px = x + cx * scale + sx;
-                        let py = top_y + ry * scale + sy;
+                // Paint the sx×sy block for this font pixel.
+                for dy in 0..sy {
+                    for dx in 0..sx {
+                        let px = x + cx * sx + dx;
+                        let py = top_y + ry * sy + dy;
                         if px < width && py < height {
                             buf[py * width + px] = WHITE;
                         }
@@ -64,12 +65,40 @@ fn draw_text(
                 }
             }
         }
-        x += (GLYPH_W + GLYPH_GAP) * scale;
+        x += (GLYPH_W + GLYPH_GAP) * sx;
     }
 }
 
-/// Render the icon. `down`/`up` are the formatted rate strings (e.g. `"1.2M"`).
-/// Returns `width * height` ARGB_8888 pixels.
+/// Cap on how much taller-than-wide a glyph may be stretched when filling the
+/// icon, so a single big number stays legible rather than looking smeared.
+const MAX_STRETCH: usize = 3;
+
+/// Render a single value (e.g. the download rate) as large as possible, filling
+/// the icon's height and centering it. This is what the status-bar icon uses:
+/// one big number is far more legible in the tiny square than two stacked rows.
+pub fn render_single(width: usize, height: usize, text: &str) -> Vec<u32> {
+    let mut buf = vec![0u32; width.saturating_mul(height)];
+    if width == 0 || height == 0 || text.is_empty() {
+        return buf;
+    }
+
+    let units_w = text_width_px(text).max(1);
+    let sx = (width / units_w).max(1);
+    // Fill the vertical space, but don't stretch past MAX_STRETCH × the width scale.
+    let sy = (height / GLYPH_H).max(1).min(sx * MAX_STRETCH).max(sx);
+
+    let total_w = (text_width_px(text) * sx).min(width);
+    let glyph_h = (GLYPH_H * sy).min(height);
+    let left_x = (width - total_w) / 2;
+    let top_y = (height - glyph_h) / 2;
+
+    draw_text(&mut buf, width, height, text, sx, sy, (left_x, top_y));
+    embolden(&mut buf, width, height);
+    buf
+}
+
+/// Render two stacked rows (download over upload), right-aligned. Kept for the
+/// two-value layout; the app currently uses [`render_single`] instead.
 pub fn render(width: usize, height: usize, down: &str, up: &str) -> Vec<u32> {
     let mut buf = vec![0u32; width.saturating_mul(height)];
     if width == 0 || height == 0 {
@@ -83,18 +112,21 @@ pub fn render(width: usize, height: usize, down: &str, up: &str) -> Vec<u32> {
     let gap = scale; // one font-pixel gap between the rows
     let block_h = 2 * glyph_px + gap;
     let top_y = (height - block_h) / 2;
-    let right_x = width; // right-align
 
-    draw_text(&mut buf, width, height, down, scale, right_x, top_y);
+    // Right-align each row.
+    let down_x = width.saturating_sub(text_width_px(down) * scale);
+    let up_x = width.saturating_sub(text_width_px(up) * scale);
+    draw_text(&mut buf, width, height, down, scale, scale, (down_x, top_y));
     draw_text(
         &mut buf,
         width,
         height,
         up,
         scale,
-        right_x,
-        top_y + glyph_px + gap,
+        scale,
+        (up_x, top_y + glyph_px + gap),
     );
+
     // Thicken strokes so the glyphs survive Android's heavy downscale + the
     // monochrome alpha-mask tinting it applies to status-bar icons.
     embolden(&mut buf, width, height);
@@ -151,6 +183,28 @@ mod tests {
     #[test]
     fn zero_size_is_safe() {
         assert!(render(0, 0, "1M", "1M").is_empty());
+    }
+
+    #[test]
+    fn single_value_fills_more_than_stacked() {
+        // The single big number should light more pixels than the same value in
+        // the two-row layout (it uses the full height).
+        let single = render_single(72, 72, "2K");
+        let stacked = render(72, 72, "2K", "1K");
+        let lit = |b: &[u32]| b.iter().filter(|&&p| p == WHITE).count();
+        assert!(lit(&single) > lit(&stacked), "single should be larger");
+        assert_eq!(single.len(), 72 * 72);
+    }
+
+    #[test]
+    fn single_value_stays_in_bounds() {
+        for t in ["0", "2K", "120M", "999G"] {
+            let buf = render_single(48, 48, t);
+            assert_eq!(buf.len(), 48 * 48);
+            assert!(buf.contains(&WHITE));
+        }
+        assert!(render_single(0, 0, "2K").is_empty());
+        assert!(render_single(48, 48, "").iter().all(|&p| p == 0));
     }
 
     #[test]

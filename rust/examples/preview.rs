@@ -8,13 +8,9 @@ use std::io::{BufWriter, Write};
 const TILE: usize = 96;
 
 fn main() {
-    // (download, upload) label pairs spanning the formatting ranges.
-    let samples = [
-        ("1.2M", "340K"),
-        ("85K", "2.0M"),
-        ("950B", "0"),
-        ("12M", "8.5M"),
-    ];
+    // Download-only values spanning the formatting ranges (what the status bar
+    // shows now — one big number via render_single).
+    let samples = ["2K", "85K", "1M", "120M"];
     let w = TILE * samples.len();
     let h = TILE;
 
@@ -24,8 +20,8 @@ fn main() {
         px.copy_from_slice(&[20, 22, 26]);
     }
 
-    for (col, (down, up)) in samples.iter().enumerate() {
-        let icon = icon::render(TILE, TILE, down, up);
+    for (col, text) in samples.iter().enumerate() {
+        let icon = icon::render_single(TILE, TILE, text);
         for y in 0..TILE {
             for x in 0..TILE {
                 if (icon[y * TILE + x] >> 24) & 0xFF > 0 {

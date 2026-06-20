@@ -1,9 +1,12 @@
 //! Rasterize the two throughput rows into an ARGB_8888 status-bar icon.
 //!
-//! Layout: download (with a `↓` prefix) on the top half, upload (`↑`) on the
-//! bottom half. Text is white on a transparent background; Android tints/scales
-//! the bitmap for the status bar. The returned buffer is `width * height`
-//! `0xAARRGGBB` pixels, row-major, ready for `Bitmap.setPixels`.
+//! Layout: download on the top half, upload on the bottom half — direction is
+//! conveyed by position (no arrow glyphs), which frees horizontal space so the
+//! digits render larger in the tiny status-bar slot. The `↓`/`↑` arrows live in
+//! the expanded notification label instead. Text is white on a transparent
+//! background; Android tints/scales the bitmap for the status bar. The returned
+//! buffer is `width * height` `0xAARRGGBB` pixels, row-major, ready for
+//! `Bitmap.setPixels`.
 
 use crate::font::{glyph, GLYPH_H, GLYPH_W};
 
@@ -73,9 +76,8 @@ pub fn render(width: usize, height: usize, down: &str, up: &str) -> Vec<u32> {
         return buf;
     }
 
-    let top = format!("↓{down}");
-    let bottom = format!("↑{up}");
-    let scale = fit_scale(width, height, &top, &bottom);
+    // No arrow prefixes: top row = download, bottom row = upload (by position).
+    let scale = fit_scale(width, height, down, up);
 
     let glyph_px = GLYPH_H * scale;
     let gap = scale; // one font-pixel gap between the rows
@@ -83,12 +85,12 @@ pub fn render(width: usize, height: usize, down: &str, up: &str) -> Vec<u32> {
     let top_y = (height - block_h) / 2;
     let right_x = width; // right-align
 
-    draw_text(&mut buf, width, height, &top, scale, right_x, top_y);
+    draw_text(&mut buf, width, height, down, scale, right_x, top_y);
     draw_text(
         &mut buf,
         width,
         height,
-        &bottom,
+        up,
         scale,
         right_x,
         top_y + glyph_px + gap,
@@ -126,6 +128,13 @@ mod tests {
     #[test]
     fn zero_size_is_safe() {
         assert!(render(0, 0, "1M", "1M").is_empty());
+    }
+
+    #[test]
+    fn shorter_text_renders_larger() {
+        // Dropping the arrow prefix shortens each row, which should let the
+        // glyphs scale up in the same icon box.
+        assert!(fit_scale(72, 72, "1M", "1M") > fit_scale(72, 72, "↓999G", "↑999G"));
     }
 
     #[test]

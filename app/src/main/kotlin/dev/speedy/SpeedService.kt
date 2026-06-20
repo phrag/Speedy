@@ -123,13 +123,20 @@ class SpeedService : Service() {
     }
 
     private fun createChannel() {
+        // IMPORTANCE_DEFAULT (not LOW) so the notification is "alerting" and its
+        // icon shows in the status bar — LOW is treated as "silent", whose icons
+        // Pixel/AOSP hides behind a dot. We suppress sound/vibration/heads-up so
+        // it stays quiet despite the higher importance. Channel importance is
+        // fixed at creation, so a new id is used to apply this on update.
         val channel = NotificationChannel(
             CHANNEL_ID,
             getString(R.string.channel_name),
-            NotificationManager.IMPORTANCE_LOW, // silent, no heads-up
+            NotificationManager.IMPORTANCE_DEFAULT,
         ).apply {
             description = getString(R.string.channel_desc)
             setShowBadge(false)
+            setSound(null, null)
+            enableVibration(false)
         }
         notificationManager().createNotificationChannel(channel)
     }
@@ -140,7 +147,8 @@ class SpeedService : Service() {
     companion object {
         private const val TAG = "Speedy"
         const val ACTION_STOP = "dev.speedy.action.STOP"
-        private const val CHANNEL_ID = "throughput"
+        // v2: bumped to IMPORTANCE_DEFAULT; a new id forces the change to apply.
+        private const val CHANNEL_ID = "throughput.v2"
         private const val NOTIF_ID = 1
         /** Square ARGB icon edge; Android downscales it for the status bar. */
         private const val ICON_PX = 72

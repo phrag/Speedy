@@ -95,7 +95,30 @@ pub fn render(width: usize, height: usize, down: &str, up: &str) -> Vec<u32> {
         right_x,
         top_y + glyph_px + gap,
     );
+    // Thicken strokes so the glyphs survive Android's heavy downscale + the
+    // monochrome alpha-mask tinting it applies to status-bar icons.
+    embolden(&mut buf, width, height);
     buf
+}
+
+/// One-pixel dilation: any transparent pixel orthogonally adjacent to a lit one
+/// becomes lit. Doubles effective stroke weight without merging the digits.
+fn embolden(buf: &mut [u32], width: usize, height: usize) {
+    let src = buf.to_vec();
+    for y in 0..height {
+        for x in 0..width {
+            if src[y * width + x] == WHITE {
+                continue;
+            }
+            let lit_neighbor = (x > 0 && src[y * width + x - 1] == WHITE)
+                || (x + 1 < width && src[y * width + x + 1] == WHITE)
+                || (y > 0 && src[(y - 1) * width + x] == WHITE)
+                || (y + 1 < height && src[(y + 1) * width + x] == WHITE);
+            if lit_neighbor {
+                buf[y * width + x] = WHITE;
+            }
+        }
+    }
 }
 
 #[cfg(test)]

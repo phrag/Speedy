@@ -1,0 +1,11 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Speedy</string>
+    <string name="intro">Shows live download (↓) and upload (↑) speed in the status bar via an ongoing notification.</string>
+    <string name="start">Start indicator</string>
+    <string name="stop">Stop indicator</string>
+    <string name="battery">Disable battery optimization</string>
+    <string name="notif_title">Network speed</string>
+    <string name="channel_name">Throughput indicator</string>
+    <string name="channel_desc">Ongoing notification showing live network speed.</string>
+</resources>

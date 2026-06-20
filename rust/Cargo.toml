@@ -1,0 +1,19 @@
+[package]
+name = "speedy_core"
+version = "0.1.0"
+edition = "2021"
+description = "Network throughput math + status-bar icon rasterization for the Speedy Android app"
+license = "MIT"
+
+[lib]
+# cdylib -> libspeedy_core.so for Android; rlib -> host-side `cargo test`.
+crate-type = ["cdylib", "rlib"]
+
+[dependencies]
+# Only used by the JNI bridge in lib.rs; compiles on the host too so tests build cleanly.
+jni = "0.21"
+
+[profile.release]
+opt-level = "z"
+lto = true
+strip = true

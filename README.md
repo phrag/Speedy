@@ -1,5 +1,12 @@
 # Speedy
 
+[![CI](https://img.shields.io/github/actions/workflow/status/phrag/Speedy/ci.yml?label=CI)](https://github.com/phrag/Speedy/actions/workflows/ci.yml)
+[![Licence: GPL-3.0](https://img.shields.io/github/license/phrag/Speedy)](LICENSE)
+![Android 14+](https://img.shields.io/badge/Android-14%2B-3DDC84?logo=android&logoColor=white)
+![No INTERNET permission](https://img.shields.io/badge/permissions-no%20INTERNET-2ea44f)
+![No Google Play Services](https://img.shields.io/badge/Google%20Play%20Services-none-2ea44f)
+![Rust core](https://img.shields.io/badge/core-Rust-dea584?logo=rust&logoColor=white)
+
 A tiny Android app that shows **live download (↓) and upload (↑) network speed in the status bar**, built for a Pixel 10 running GrapheneOS. As much logic as possible lives in **Rust**; Kotlin is a thin shell.
 
 ## How it works

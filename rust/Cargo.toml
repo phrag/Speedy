@@ -3,7 +3,7 @@ name = "speedy_core"
 version = "0.1.0"
 edition = "2021"
 description = "Network throughput math + status-bar icon rasterization for the Speedy Android app"
-license = "MIT"
+license = "GPL-3.0-or-later"
 
 [lib]
 # cdylib -> libspeedy_core.so for Android; rlib -> host-side `cargo test`.

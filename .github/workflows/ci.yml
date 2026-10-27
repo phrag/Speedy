@@ -42,6 +42,10 @@ jobs:
 
       - name: Set up Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # Its default "tools platform-tools" fails on cmdline-tools 16+
+          # (no "tools" package any more); the next step installs what we need.
+          packages: ""
 
       - name: Install SDK packages + NDK
         run: |
